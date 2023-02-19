@@ -72,14 +72,23 @@ searchButton.addEventListener('click', function(event) {
   }, (data) => {
     console.log("from callApi: ", data)
 
+    // if the location doesn't exist, update page
+    if (data['cod'] == 404) {
+      sectionToday.html(`<h3>Location not found!</h3>`)
+      return;
+    }
+
     let city = data['city']
     let cityName = city['name']
 
-    let html = `<h3 id="today-title">${cityName}, ${city['country']}</h3>`
+    updateRecentSearches(cityName + ", " + city['country']);
+
+    let sectionTodayHtml = `<h3 id="today-title">${cityName}, ${city['country']}</h3>`
 
     let list = data['list']
+    // Get 0-7 (first 7 x 3 hour segments)
     let today = list.slice(0, 7)
-    html += `
+    sectionTodayHtml += `
       <div class="container">
         <div class="row">
         
@@ -93,56 +102,82 @@ searchButton.addEventListener('click', function(event) {
       let weather = segment['weather'][0]
       let icon = weather['icon']
 
-      html += ` 
+      sectionTodayHtml += ` 
       <div class="col">
         <p>${date}</p>
         <img src="http://openweathermap.org/img/wn/${icon}@2x.png" />
         <p>${temp}°C</p>
         <p>Humidity: ${humidity}%</p>
+        <p>Wind Speed: ${wind} m/s<p>
+
       </div>
       `
 
     }
 
-    sectionToday.html(html)
+    sectionToday.html(sectionTodayHtml)
+
+
+    let sectionForecastHtml = `
+      <div class="container">
+        <div class="row">
+        
+    `
+    let forecast = list.slice(8, 40)
+    // OpenWeatherAPI returns every 3 hours, so we will skip by 8 (24 hours/1 day) and increment by 8 instead of i++
+    for (i=0; i < forecast.length; i+=8) {
+      // Same as above, could potentially be made into it's own function
+      let segment = forecast[i]
+      let date = segment['dt_txt']
+      let temp = segment['main']['temp']
+      let humidity = segment['main']['humidity']
+      let wind = segment['wind']['speed']
+      let weather = segment['weather'][0]
+      let icon = weather['icon']
+
+      sectionForecastHtml += ` 
+      <div class="col">
+        <p>${date}</p>
+        <img src="http://openweathermap.org/img/wn/${icon}@2x.png" />
+        <p>${temp}°C</p>
+        <p>Humidity: ${humidity}%</p>
+        <p>Wind Speed: ${wind} m/s<p>
+      </div>
+      `
+    }
+
+    sectionForecast.html(sectionForecastHtml)
 
   })
 });
 
+const MAX_RECENT_SEARCHES = 5;
+let recentSearches = [];
 
+// Function to update the recent searches section with the latest searches
+function updateRecentSearches(place) {
+  // Load the recent searches from localStorage, or initialize it if it doesn't exist
+  recentSearches = JSON.parse(localStorage.getItem("recentSearches")) || [];
 
+  if (place) {
+    // Add the latest search to the beginning of the recent searches array
+    recentSearches.unshift(place);
 
+    // Truncate the array to keep only the 5 most recent searches
+    recentSearches = recentSearches.slice(0, MAX_RECENT_SEARCHES);
 
-// const apiKey = '498369e5cb40c3b896f92242394cc639';
-// var url = 'https://api.openweathermap.org/data/2.5/forecast?lat=51.5085&lon=0.1257&appid=498369e5cb40c3b896f92242394cc639';
-// var queryString = "London,UK"
+    // Save the updated recent searches to localStorage
+    localStorage.setItem("recentSearches", JSON.stringify(recentSearches));
+  }
 
-// let button = $()
-// $.ajax({
-//     url: url,
-//     type: "get",
-//     data: {
-//         appid: apiKey,
-//         q: queryString
-//     },
-//     success: function(response) {
-//         // on success
-//         console.log(response)
-//     },
-//     error: function(xhr) {
-//         // on error
-//      }
-// });
+  // Update the content of the history element with the latest searches
+  const historyElement = document.getElementById("history");
+  historyElement.innerHTML = "<h4>Recent Searches</h4><ul>";
+  recentSearches.forEach((place) => {
+    const listItem = document.createElement("li");
+    listItem.innerHTML = place;
+    historyElement.appendChild(listItem);
+  });
+}
 
-/*fetch("https://api.openweathermap.org/data/2.5/weather?q=London&limit=5&appid=498369e5cb40c3b896f92242394cc639") 
-    .then(response => response.json())
-    .then(citiesFound => {
-        let firstCity = citiesFound[0];
-
-console.log(firstCity);
-console.log(firstCity.lat)
-console.log(firstCity.lon)
-
-})*/
-
-//https://api.openweathermap.org/data/2.5/forecast?lat=51.5085&lon=0.1257&appid=498369e5cb40c3b896f92242394cc639
+updateRecentSearches();
